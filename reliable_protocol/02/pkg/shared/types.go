@@ -1,13 +1,18 @@
 package shared
 
-// Message represents a message structure for communication between client and server.
-type Message struct {
-    ID      string `json:"id"`
-    Content string `json:"content"`
+import (
+	"fmt"
+	"net"
+)
+
+// 数据包结构
+type Packet struct {
+	SeqNumber int    // 序列号
+	Data      string // 数据内容
 }
 
-// Status represents the status of a response from the server.
-type Status struct {
-    Code    int    `json:"code"`
-    Message string `json:"message"`
+func SendUDPPacket(conn *net.UDPConn, addr *net.UDPAddr, packet Packet) {
+	fmt.Printf("发送数据包: Seq=%d, Data=%s\n", packet.SeqNumber, packet.Data)
+	data := append([]byte{byte(packet.SeqNumber)}, []byte(packet.Data)...)
+	conn.WriteToUDP(data, addr)
 }

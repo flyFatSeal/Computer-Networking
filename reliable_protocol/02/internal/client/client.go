@@ -1,30 +1,59 @@
-package client
+package main
 
 import (
-	"bufio"
 	"fmt"
+	"go-reliable/shared"
 	"net"
+	"os"
 )
 
-func ConnectToServer(address string) (net.Conn, error) {
-	conn, err := net.Dial("tcp", address)
-	if err != nil {
-		return nil, err
-	}
-	return conn, nil
+type User struct {
+	conn      *net.UDPConn
+	server    *net.UDPAddr
+	SeqNumber int
 }
 
-func SendMessage(conn net.Conn, message string) error {
-	_, err := fmt.Fprintf(conn, message+"\n")
-	return err
+func (User *User) ReceiveMessage() {
+	buf := make([]byte, 1024)
+	n, _, err := User.conn.ReadFromUDP(buf)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	receivedSeqNumber := int(buf[0])
+	if receivedSeqNumber == User.SeqNumber {
+		fmt.Printf("收到 SeqNumber: Seq=%d\n", receivedSeqNumber)
+		User.SeqNumber++
+
+	}
+
+	packet := shared.Packet{
+		SeqNumber: receivedSeqNumber,
+		Data:      "",
+	}
+
+	shared.SendUDPPacket(User.conn, User.server, packet)
+
 }
 
-func ReceiveMessage(conn net.Conn) (string, error) {
-	message, err := bufio.NewReader(conn).ReadString('\n')
+func ConnectToServer(address string) (*User, error) {
+	// 解析服务器地址
+	serverAddr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to resolve server address: %v", err)
 	}
-	return message, nil
+
+	// 创建 UDP 连接
+	conn, err := net.DialUDP("udp", nil, serverAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to server: %v", err)
+	}
+
+	return &User{
+		conn:      conn,
+		server:    serverAddr,
+		SeqNumber: 0,
+	}, nil
 }
 
 func CloseConnection(conn net.Conn) {
@@ -32,25 +61,30 @@ func CloseConnection(conn net.Conn) {
 }
 
 func main() {
-	address := "localhost:8080" // Example address
-	conn, err := ConnectToServer(address)
+	serverAddress := "192.168.1.168:8080" // 服务器地址
+	user, err := ConnectToServer(serverAddress)
 	if err != nil {
 		fmt.Println("Error connecting to server:", err)
-		return
+		os.Exit(1)
 	}
-	defer CloseConnection(conn)
+	defer CloseConnection(user.conn)
+	initPacket := shared.Packet{
+		SeqNumber: 0,
+		Data:      "",
+	}
+	shared.SendUDPPacket(user.conn, user.server, initPacket)
 
-	// Example usage
-	err = SendMessage(conn, "Hello, Server!")
-	if err != nil {
-		fmt.Println("Error sending message:", err)
-		return
+	for {
+		// 接收客户端请求
+		buf := make([]byte, 1024)
+		_, addr, err := user.conn.ReadFromUDP(buf)
+		if err != nil {
+			fmt.Println("Error reading from UDP:", err)
+			continue
+		}
+
+		user.ReceiveMessage()
+
 	}
 
-	response, err := ReceiveMessage(conn)
-	if err != nil {
-		fmt.Println("Error receiving message:", err)
-		return
-	}
-	fmt.Println("Received from server:", response)
 }

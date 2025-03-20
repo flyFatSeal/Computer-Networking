@@ -1,7 +1,7 @@
-module go-client-server
+module go-reliable
 
-go 1.18
+go 1.23.6
 
-require ( 
-    // Add your dependencies here
-)
+require go-reliable/shared v0.0.0
+
+replace go-reliable/shared => ./pkg/shared
