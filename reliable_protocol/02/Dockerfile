@@ -27,7 +27,7 @@ COPY . .
 
 # 编译 Go 程序
 RUN go mod download \
-    && go build -o /cmd/test /app/main.go
+    && go build -o /cmd/client /internal/client && go build -o /cmd/server /internal/server
 
 # 暴露端口（根据你的应用需要修改）
 EXPOSE 8080
