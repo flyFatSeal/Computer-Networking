@@ -5,6 +5,7 @@ import (
 	"go-reliable/shared"
 	"net"
 	"os"
+	"time"
 )
 
 type User struct {
@@ -13,26 +14,30 @@ type User struct {
 	SeqNumber int
 }
 
-func (User *User) ReceiveMessage() {
-	buf := make([]byte, 1024)
-	n, _, err := User.conn.ReadFromUDP(buf)
-	if err != nil {
-		fmt.Println(err)
-	}
+func (User *User) ReceiveMessage(data []byte) {
 
-	receivedSeqNumber := int(buf[0])
-	if receivedSeqNumber == User.SeqNumber {
-		fmt.Printf("收到 SeqNumber: Seq=%d\n", receivedSeqNumber)
-		User.SeqNumber++
+	receivedSeqNumber := int(data[0])
 
-	}
+	// 解析 Data
+	receivedData := string(data[1:])
 
+	// 构造 Packet
 	packet := shared.Packet{
 		SeqNumber: receivedSeqNumber,
+		Data:      receivedData,
+	}
+
+	ackPacket := shared.Packet{
+		SeqNumber: User.SeqNumber,
 		Data:      "",
 	}
 
-	shared.SendUDPPacket(User.conn, User.server, packet)
+	if receivedSeqNumber == User.SeqNumber {
+		fmt.Printf("收到数据包: Seq=%d, Data=%s\n", packet.SeqNumber, packet.Data)
+		User.SeqNumber++
+	}
+	time.Sleep(2 * time.Second)
+	shared.SendUDPPacketConnected(User.conn, ackPacket)
 
 }
 
@@ -61,29 +66,30 @@ func CloseConnection(conn net.Conn) {
 }
 
 func main() {
-	serverAddress := "192.168.1.168:8080" // 服务器地址
+	serverAddress := "127.0.0.1:8080" // 服务器地址
 	user, err := ConnectToServer(serverAddress)
 	if err != nil {
 		fmt.Println("Error connecting to server:", err)
 		os.Exit(1)
 	}
 	defer CloseConnection(user.conn)
+
 	initPacket := shared.Packet{
 		SeqNumber: 0,
 		Data:      "",
 	}
-	shared.SendUDPPacket(user.conn, user.server, initPacket)
+	shared.SendUDPPacketConnected(user.conn, initPacket)
 
 	for {
 		// 接收客户端请求
 		buf := make([]byte, 1024)
-		_, addr, err := user.conn.ReadFromUDP(buf)
+		_, _, err := user.conn.ReadFromUDP(buf)
 		if err != nil {
 			fmt.Println("Error reading from UDP:", err)
 			continue
 		}
 
-		user.ReceiveMessage()
+		user.ReceiveMessage(buf)
 
 	}
 
