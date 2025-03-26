@@ -87,8 +87,8 @@ func (Server *Server) HandleClient(conn *net.UDPConn, addr *net.UDPAddr, message
 
 	for currentSeq < len(data) {
 		packet := shared.Packet{
-			SeqNumber: currentSeq,
-			Data:      data[currentSeq],
+			SeqNum: currentSeq,
+			Data:   data[currentSeq],
 		}
 		time.Sleep(2 * time.Second)
 		shared.SendUDPPacket(conn, addr, packet)

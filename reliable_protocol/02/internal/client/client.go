@@ -23,17 +23,17 @@ func (User *User) ReceiveMessage(data []byte) {
 
 	// 构造 Packet
 	packet := shared.Packet{
-		SeqNumber: receivedSeqNumber,
-		Data:      receivedData,
+		SeqNum: receivedSeqNumber,
+		Data:   receivedData,
 	}
 
 	ackPacket := shared.Packet{
-		SeqNumber: User.SeqNumber,
-		Data:      "",
+		SeqNum: User.SeqNumber,
+		Data:   "",
 	}
 
 	if receivedSeqNumber == User.SeqNumber {
-		fmt.Printf("收到数据包: Seq=%d, Data=%s\n", packet.SeqNumber, packet.Data)
+		fmt.Printf("收到数据包: Seq=%d, Data=%s\n", packet.SeqNum, packet.Data)
 		User.SeqNumber++
 	}
 	time.Sleep(2 * time.Second)
@@ -75,8 +75,8 @@ func main() {
 	defer CloseConnection(user.conn)
 
 	initPacket := shared.Packet{
-		SeqNumber: 0,
-		Data:      "",
+		SeqNum: 0,
+		Data:   "",
 	}
 	shared.SendUDPPacketConnected(user.conn, initPacket)
 
