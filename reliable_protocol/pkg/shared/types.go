@@ -1,11 +1,15 @@
 package shared
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net"
 	"time"
 )
+
+const lossProb = 0.05       // 每 100 个丢失 5 个
+const corruptionProb = 0.02 // 每 100 个损坏 2 个
 
 // 数据包结构
 type Packet struct {
@@ -30,24 +34,55 @@ func IsCorrupted(packet Packet) bool {
 }
 
 func SendUDPPacket(conn *net.UDPConn, addr *net.UDPAddr, packet Packet) error {
-	fmt.Printf("发送数据包: Seq=%d, Data=%s\n", packet.SeqNum, packet.Data)
-	data := append([]byte{byte(packet.SeqNum)}, []byte(packet.Data)...)
-	_, err := conn.WriteToUDP(data, addr)
+
+	packetToSend := SendToMedium(packet, lossProb, corruptionProb)
+
+	if packetToSend == nil {
+		// 数据包丢失
+		return fmt.Errorf("packet lost: SeqNum=%d", packet.SeqNum)
+	}
+
+	packetToSend.Checksum = CalculateChecksum(*packetToSend)
+
+	data, err := json.Marshal(packetToSend)
 	if err != nil {
-		return fmt.Errorf("failed to send UDP packet: %v", err)
+		return fmt.Errorf("failed to marshal packet: %v", err)
+	}
+
+	// 打印发送的内容
+	fmt.Printf("发送数据包: Seq=%d, Ack=%d, Data=%s, Checksum=%d\n",
+		packetToSend.SeqNum, packetToSend.AckNum, packetToSend.Data, packetToSend.Checksum)
+	_, _error := conn.WriteToUDP(data, addr)
+	if _error != nil {
+		return fmt.Errorf("failed to send UDP packet: %v", _error)
 	}
 
 	return nil
 }
 
 func SendUDPPacketConnected(conn *net.UDPConn, packet Packet) error {
-	fmt.Printf("发送数据包: Seq=%d, Data=%s\n", packet.SeqNum, packet.Data)
-	data := append([]byte{byte(packet.SeqNum)}, []byte(packet.Data)...)
 
-	// 使用连接式的 Write 方法发送数据
-	_, err := conn.Write(data)
+	packetToSend := SendToMedium(packet, lossProb, corruptionProb)
+
+	if packetToSend == nil {
+		// 数据包丢失
+		return fmt.Errorf("packet lost: SeqNum=%d", packet.SeqNum)
+	}
+	packetToSend.Checksum = CalculateChecksum(*packetToSend)
+
+	// 将 Packet 序列化为 JSON
+	data, err := json.Marshal(packetToSend)
 	if err != nil {
-		return fmt.Errorf("failed to send UDP packet: %v", err)
+		return fmt.Errorf("failed to marshal packet: %v", err)
+	}
+
+	// 打印发送的内容
+	fmt.Printf("发送数据包: Seq=%d, Ack=%d, Data=%s, Checksum=%d\n",
+		packetToSend.SeqNum, packetToSend.AckNum, packetToSend.Data, packetToSend.Checksum)
+	// 使用连接式的 Write 方法发送数据
+	_, errWrite := conn.Write(data)
+	if errWrite != nil {
+		return fmt.Errorf("failed to send UDP packet: %v", errWrite)
 	}
 
 	return nil
