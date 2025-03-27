@@ -77,8 +77,8 @@ func (Server *Server) HandleClient(conn *net.UDPConn, addr *net.UDPAddr, message
 	base := 0
 	nextSeq := 0
 
-	data := make([]string, 300)
-	for i := 1; i <= 300; i++ {
+	data := make([]string, 1000)
+	for i := 1; i <= 1000; i++ {
 		data[i-1] = fmt.Sprintf("%d", i)
 	}
 
@@ -103,8 +103,8 @@ func (Server *Server) HandleClient(conn *net.UDPConn, addr *net.UDPAddr, message
 	for base < len(data)-1 {
 		timeout.Reset(TimeoutDuration)
 		for nextSeq < base+window_size {
-			if nextSeq >= len(data)-1 {
-				continue
+			if nextSeq > len(data)-1 {
+				break
 			}
 			packet := shared.Packet{
 				SeqNum: nextSeq,
